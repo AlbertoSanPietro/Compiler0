@@ -1,0 +1,10 @@
+The file only runs on Linux, this may be fixed in the future through the prepocessor. 
+
+The file can be compiled with cc, gcc or clang, with no particular flags.
+
+In needs to be run by giving as argument the extended file path of the necessary .obj file
+eg:
+./a.out /home/user/folder/file.obj
+
+The test files will be added later on in respective folders, one for the standard .obj files and another for the actual compiler-generated test files
+
