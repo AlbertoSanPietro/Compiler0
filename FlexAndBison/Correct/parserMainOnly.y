@@ -3,10 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern FILE *yyin;
 void yyerror(const char *s);
 int yylex(void);
+
 %}
 
+
+%debug
 %union {
     int ival;
     char* sval;
@@ -100,8 +104,21 @@ expr:
 ;
 
 %%
+int main(int argc, char **argv) {
+    if (argc > 1) {
+        yyin = fopen(argv[1], "r");
+        if (!yyin) {
+            perror("fopen");
+            return 1;
+        }
+    }
+
+    yyparse();
+    return 0;
+}
 
 void yyerror(const char *s) {
     fprintf(stderr, "Error: %s\n", s);
+    exit(1);
 }
 

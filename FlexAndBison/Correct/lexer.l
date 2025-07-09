@@ -1,11 +1,16 @@
+/* === lexer.l === */
+
 %{
-#include "parser2.tab.h"
+#include "parser.tab.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 %}
 
 %%
+
 "int"           { return INT; }
+"main"          { return MAIN; }
 "if"            { return IF; }
 "else"          { return ELSE; }
 "while"         { return WHILE; }
@@ -31,20 +36,19 @@
 "{"             { return '{'; }
 "}"             { return '}'; }
 
-[0-9]+          { yylval.ival = atoi(yytext); return NUMBER; }
-
+[0-9]+           { yylval.ival = atoi(yytext); return NUMBER; }
 [a-zA-Z_][a-zA-Z0-9_]* { yylval.sval = strdup(yytext); return IDENT; }
 
-[ \t\r\n]+      { /* skip whitespace */ }
+[ \t\r\n]+       { /* skip whitespace */ }
 
-.               {
-                  fprintf(stderr, "Unexpected character: %s\n", yytext);
-                  exit(1);
+.                {
+                    fprintf(stderr, "Unexpected character: %s\n", yytext);
+                    exit(1);
                 }
 
 %%
 
 int yywrap(void) {
-  return 1;
+    return 1;
 }
 

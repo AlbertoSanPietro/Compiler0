@@ -1,5 +1,5 @@
 int main() {
-    int x = 0;
+    int x = 2;
     while (x < 10) {
         if (x % 2 == 0)
             x = x + 1;
