@@ -1,15 +1,14 @@
 %{
-#include "parser.tab.h"   // Bison-generated header for token definitions
+#include "parser.tab.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-//int yylval;               // If you're using union in Bison, adjust accordingly
-char* strdup(const char*); // Declare strdup if needed
 %}
 
 %%
 
 "int"           { return INT; }
+"main"          { return MAIN; }
 "if"            { return IF; }
 "else"          { return ELSE; }
 "while"         { return WHILE; }
@@ -35,26 +34,19 @@ char* strdup(const char*); // Declare strdup if needed
 "{"             { return '{'; }
 "}"             { return '}'; }
 
-[0-9]+          {
-                  yylval = atoi(yytext);
-                  return NUMBER;
-                }
+[0-9]+           { yylval.ival = atoi(yytext); return NUMBER; }
+[a-zA-Z_][a-zA-Z0-9_]* { yylval.sval = strdup(yytext); return IDENT; }
 
-[a-zA-Z_][a-zA-Z0-9_]* {
-                  yylval = (int)strdup(yytext);  // Or use a union if needed
-                  return IDENT;
-                }
+[ \t\r\n]+       { /* skip whitespace */ }
 
-[ \t\r\n]+      { /* Skip whitespace */ }
-
-.               {
-                  fprintf(stderr, "Unexpected character: %s\n", yytext);
-                  exit(1);
+.                {
+                    fprintf(stderr, "Unexpected character: %s\n", yytext);
+                    exit(1);
                 }
 
 %%
 
-int yywrap() {
-  return 1;
+int yywrap(void) {
+    return 1;
 }
 
