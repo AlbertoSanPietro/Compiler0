@@ -293,7 +293,9 @@ _(abc+)_ matcha una o più ripetizioni di _abc_.
 Piccolo extra:
 validazione di una email di tipo:
 _josh.doe@gmail.com_
+
 _foo_bar@gmail.com_
+
 _Giovanni165@gmail.com_ 
 
 `^[a-zA-Z0-9._%+-]+@gmail.com\.com$`
