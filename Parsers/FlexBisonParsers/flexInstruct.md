@@ -1,6 +1,6 @@
-### How to run simple flex programs
+# How to run simple flex programs
 
-# use flex to produce the yy.c file
+### use flex to produce the yy.c file
 `flex namefile.l`
 compile with any C/C++ compiler:
 `gcc lex.yy.c`
