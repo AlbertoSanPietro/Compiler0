@@ -11,7 +11,7 @@
 %%
 
 calclist:
-	| calclist exo EOL {	printf("=%d\n", $1); }
+	| calclist exp EOL {	printf("=%d\n", $1); }
 	;
 exp: factor
 	| exp ADD factor {	$$ = $1 + $3; }
@@ -33,3 +33,7 @@ int main(int argc, char **argv)
 	yyparse();
 }
 
+yyerror(char *s) 
+{
+fprintf(stderr, "error: %s\n", s);	
+}
