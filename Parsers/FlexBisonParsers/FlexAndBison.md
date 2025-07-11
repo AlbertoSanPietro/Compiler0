@@ -255,11 +255,48 @@ Matcha l'inizio di una linea come primo carattere di una regex. Dentro le _[]_ �
 Matcha la fine di una linea come ultimo carattere di una regex.
 
 * _{}_
+Se contengono 1 o 2 numeri indicano il numero massimo e minimo che il pattern precedente può matchare. _A{1,3}_ Matcha da una a tre lettere A e _0{5}_ matcha 00000
+_\_ 
+Usato come in C, ma \* è l'asterisco.
 
+_*_ 
+Matcha 0 o più copie dell'spressione precedente. _[ \t]*_ è un pattern comune per matchare spazi o tab opzionali o stringhe vuote.
 
+_+_ 
+Matcha una o più occorrenze della regex precedente. Per esempio _[0-9]+_ matcha stringe di cifre come _1, 111 o 123456_ ma non stringhe vuote.
 
+_?_
+Matcha zero o una occorrenza della regex precedente:
 
+_-?[0-9]+_ matcha un numero segnato includendo il segno _-_ opzionale all'inizio.
 
+_ | _ 
+Operatore di alternanza; matcha o la regex precedente o quella successiva.
+_faith|hope|charity_ matcha ognuna delle 3 virtù.
+
+_"..."_
+Qualsiasi cosa tra virgolette è trattato letteralmente, spesso si usa per la punteggiatura.
+
+_()_
+Raggruppa una serie di regex in una nuova regex unica.
+_(01)_ matcha la sequenza 01 e _a(bc|de)_ matcha abc o ade.
+
+_/_
+Trailing context. matcha la regex che precede lo slash ma solo se seguita dalla regex dopo lo slash.
+Per esempio _0/1_ matcha 0 nella stringa 01 ma non matcherebbe nulla nella stringa 0 o 02.
+Il materiale matchato dal pattern che segue lo slash non è "consumato", rimane e può essere trasformato in token sequenziali. Solo una slash è permessa per pattern.
+
+L'operatore di ripetizione ha effetto sulla espressione più piccola precedebte, quindi
+_abc+_ matcha _ab_ seguito da uno o più _c_, per esempio 
+_(abc+)_ matcha una o più ripetizioni di _abc_.
+
+Piccolo extra:
+validazione di una email di tipo:
+_josh.doe@gmail.com_
+_foo_bar@gmail.com_
+_Giovanni165@gmail.com_ 
+
+`^[a-zA-Z0-9._%+-]+@gmail.com\.com$`
 
 
 
