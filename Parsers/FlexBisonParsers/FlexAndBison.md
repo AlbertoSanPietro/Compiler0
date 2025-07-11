@@ -228,9 +228,33 @@ Aggiungiamo le regole al lexer (o scanner):
 ```
 Finito.
 
+I file si possono trovare nelle rispettive directories.
 
 
 
+# Usare flex
+
+## Regex 
+Flex usa le regex, prendendo le regex POSIX ed estendendole. 
+I significati dei simboli sono:
+* _._
+Matcha ogni carattere ad eccezione della newline.
+
+* _[]_
+Una classe di caratteri che matcha qualsiasi carattere all'interno delle parentesi.
+Se il primo char è _^ (circonflesso)_ il significato diventa matchare tutto tranne ciò che è nelle parentesi. Il dash _-_ è un range: [0-9] corrisponde a [0123456789].
+[a-z] Vuol dire qualsiasi carattere minuscolo. 
+
+* _[a-z]{-}[jv]_
+Una classe di caratteri differenziati in cui i caratteri nella prima classe omettono i caratteri nella seconda classe.
+
+* _^_
+Matcha l'inizio di una linea come primo carattere di una regex. Dentro le _[]_ è la negazione.
+
+* _$_ 
+Matcha la fine di una linea come ultimo carattere di una regex.
+
+* _{}_
 
 
 
