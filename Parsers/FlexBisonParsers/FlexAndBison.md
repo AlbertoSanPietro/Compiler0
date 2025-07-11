@@ -124,6 +124,7 @@ Di seguito il bison per il nostro calcolatore:
 (src: CalcBison0.y)
 ```
 %{
+//C includes
 #include <stdio.h>
 %}
 
@@ -145,14 +146,14 @@ exp: factor
 
 factor: term
 	| factor MUL term { $$ = $1 * $3; }
-	|	factor DIV term { $$ = $1 / $3; }
+	| factor DIV term { $$ = $1 / $3; }
 	;
 
 term: NUMBER 
 	|	ABS term { $$ = $2 >= 0? $2 : - $2; }
 	;
 %%
-
+//C code to be executed
 int main(int argc, char **argv) 
 {
 	yyparse();
@@ -163,6 +164,71 @@ yyerror(char *s)
 fprintf(stderr, "error: %s\n", s);	
 }
 ```
+I programmi Bison sono divisi in tre come i programmi Flex.
+All'inizio dichiarazione e `#include`, nell parte centrale le dichiarazioni dei token tramite
+`%token`
+I token sono scritti in maiuscolo per convenzione. 
+La seconda sezione contiene le regole BNF semplificate. Bison gestisce, oltre al parsing, anche la generazione di strutture dati utili o la stampa di risultati (sotto). 
+I simboli hanno un valore:
+Il valore del simbolo target (a sx) è: `$$`, i simboli a dx sono in ordine: `$1, $2, $3 ...`
+I valori dei token sono ciò che era in yyval quando lo scanner ha ritornato il token. Il valore degli altri simboli arriva dalle regole. 
+
+In questo parser le regole di _calcset_ implementano un loop che legge un'espressione terminata da newline e ne stampa il valore. 
+Le altre regole implementano il calcolatore. 
+
+## Compilare insieme Flex e Bison
+Per chiamare Bison dal Lexer semplicemente cambiamo la prima parte, scrivendo:
+```
+%{
+#include "CalcBison0.tab.h"
+%}
+```
+Il resto rimane uguale. Per la compilazione ci sono diversi Instructions.md nella repo.
+
+## Grammatiche ambigue
+E' legittimo chiedersi perché siamo stati così pedanti prima; avremmo potuto scrivere:
+
+```
+exp:    exp ADD exp
+    |   exp SUB exp
+    |   exp MUL exp
+    |   exp DIV exp
+    |   ABS exp
+    |   NUMBER
+    ;
+```
+Le ragioni sono precedenze ed ambiguità. La separazione dei simboli dà la precedenza alle operazioniPotremmo quindi scrivere:
+```
+exp:    exp ADD exp
+    |   exp SUB exp
+    |   factor
+    ;
+```
+No. Questa è una grammatica ambigua poiché non specifica se prima si fa l'addizione o la sottrazione, Bison NON parsa grammatiche ambigue.
+
+## Aggiunta di regole
+Una delle cose comode è che fare aggiustamenti alle grammatiche è spesso semplice.
+Sarebbe comodo se il calcolatore gestisse le parentesi o i commenti con '//'
+Ci basta aggiungere una singola regola al parser e tre allo scanner.
+```
+//nella sezione delle dichiarazioni:
+%token OP CP 
+/* */ 
+
+%%
+term: NUMBER
+    |   ABS term { $$ = $2 >= 0? $2 : - $2; }
+    |   OP exp CP { $$ = $2; } //Nuova regola
+```
+Aggiungiamo le regole al lexer (o scanner):
+```
+"("    { return OP; }
+")"    { return CP; }
+"//".*  /*Ignora i commenti*/
+```
+Finito.
+
+
 
 
 
