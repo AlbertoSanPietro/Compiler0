@@ -1,0 +1,28 @@
+.text
+.global _start
+_start:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    sub sp, sp, #512
+    mov x0, #10
+    str x0, [sp, #-16]!
+    mov x0, #2
+    ldr x1, [sp], #16
+    udiv x0, x1, x0
+    str x0, [x29, #-8]
+    ldr x0, [x29, #-8]
+    str x0, [sp, #-16]!
+    mov x0, #2
+    ldr x1, [sp], #16
+    udiv x2, x1, x0
+    msub x0, x2, x0, x1
+    str x0, [x29, #-16]
+    ldr x0, [x29, #-8]
+    str x0, [sp, #-16]!
+    ldr x0, [x29, #-16]
+    ldr x1, [sp], #16
+    add x0, x1, x0
+    mov x8, #93
+    svc #0
+.section .data
+divzero_msg: .asciz "Division by zero!\n"
