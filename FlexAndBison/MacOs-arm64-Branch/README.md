@@ -27,14 +27,17 @@ gcc lex.yy.c parser.tab.c main.c macos_codegen.c -o Compiler
 ## Run the file:
 `./test`
 
-##Check if it ran correctly:
+## Check if it ran correctly:
 `echo $?`
 
 You should see the return value of the program. 
-here is a cheatsheet for it:
+Here is a cheatsheet for it:
+```
 test.c == 11
 Dest.c == 6 
 Test.c == 1
 West.c == 0
 Zest.c == 7
+```
 Rest.c contains a syntax error on line 1 and will NOT compile
+
