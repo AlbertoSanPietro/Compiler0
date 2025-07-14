@@ -1,0 +1,11 @@
+.extern _exit
+.text
+.global _start
+_start:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    sub sp, sp, #512
+    mov x0, #0
+    bl _exit
+.section .data
+divzero_msg: .asciz "Division by zero!\n"
