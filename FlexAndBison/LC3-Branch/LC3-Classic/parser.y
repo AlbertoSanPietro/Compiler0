@@ -25,6 +25,8 @@ void yyerror(const char *s) { fprintf(stderr, "Parse error: %s\n", s); exit(1); 
 %left '+' '-'
 %left '*' '/' '%'
 
+%precedence UMINUS
+
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
@@ -66,6 +68,7 @@ Expr:
     | Expr LE Expr  { $$ = make_binop("<=", $1, $3); }
     | Expr GT Expr  { $$ = make_binop(">", $1, $3); }
     | Expr GE Expr  { $$ = make_binop(">=", $1, $3); }
+    | '-' Expr %prec UMINUS {$$ = make_unaryop("-", $2); } 
     | '(' Expr ')' { $$ = $2; }
 ;
 

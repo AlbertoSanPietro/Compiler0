@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP } NodeType;
+typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP, UNOP } NodeType;
 
 struct ASTNode {
     NodeType type;
@@ -18,6 +18,7 @@ struct ASTNode {
         int num;
         char* var;
         struct { char* op; struct ASTNode* left, *right; } binop;
+        struct { char* op; struct ASTNode* operand; } unop;
     };
 };
 
@@ -99,6 +100,12 @@ struct ASTNode* make_binop(char* op, struct ASTNode* left, struct ASTNode* right
     node->binop.right = right;
     return node;
 }
+struct ASTNode* make_unaryop(char* op, struct ASTNode* operand) {
+    struct ASTNode* node = new_node(UNOP);
+    node->unop.op = strdup(op);
+    node->unop.operand = operand;
+    return node;
+}
 
 void emit_expr(struct ASTNode* expr) {
     switch (expr->type) {
@@ -110,35 +117,42 @@ void emit_expr(struct ASTNode* expr) {
             printf("    ldr x0, [x29, #%d]\n", offset);
             break;
         }
-       case BINOP: {
-    emit_expr(expr->binop.left);   // x0 = left
-    printf("    str x0, [sp, #-16]!\n");
-    emit_expr(expr->binop.right);  // x0 = right
-    printf("    ldr x1, [sp], #16\n");  // x1 = left (restored)
+        case UNOP: {
+            emit_expr(expr->unop.operand);
+            if (strcmp(expr->unop.op, "-") == 0) {
+                printf("    neg x0, x0\n");
+            }
+            break;
+        }
+        case BINOP: {
+            emit_expr(expr->binop.left);   // x0 = left
+            printf("    str x0, [sp, #-16]!\n");
+            emit_expr(expr->binop.right);  // x0 = right
+            printf("    ldr x1, [sp], #16\n");  // x1 = left (restored)
 
-    if (strcmp(expr->binop.op, "+") == 0) {
-        printf("    add x0, x1, x0\n");
-    } else if (strcmp(expr->binop.op, "-") == 0) {
-        printf("    sub x0, x1, x0\n");
-    } else if (strcmp(expr->binop.op, "*") == 0) {
-        printf("    mul x0, x1, x0\n");
-    } else if (strcmp(expr->binop.op, "/") == 0) {
-        printf("    udiv x0, x1, x0\n");
-    } else if (strcmp(expr->binop.op, "%%") == 0 || strcmp(expr->binop.op, "%") == 0) {
-        printf("    udiv x2, x1, x0\n");       // x2 = x1 / x0
-        printf("    msub x0, x2, x0, x1\n");   // x0 = x1 - (x2 * x0)
-    } else if (strcmp(expr->binop.op, "==") == 0) {
-        printf("    cmp x1, x0\n");
-        printf("    cset x0, eq\n");
-    } else if (strcmp(expr->binop.op, "<") == 0) {
-        printf("    cmp x1, x0\n");
-        printf("    cset x0, lt\n");
-    } else if (strcmp(expr->binop.op, ">") == 0) {
-        printf("    cmp x1, x0\n");
-        printf("    cset x0, gt\n");
-    }
-    break;
-}
+            if (strcmp(expr->binop.op, "+") == 0) {
+                printf("    add x0, x1, x0\n");
+            } else if (strcmp(expr->binop.op, "-") == 0) {
+                printf("    sub x0, x1, x0\n");
+            } else if (strcmp(expr->binop.op, "*") == 0) {
+                printf("    mul x0, x1, x0\n");
+            } else if (strcmp(expr->binop.op, "/") == 0) {
+                printf("    udiv x0, x1, x0\n");
+            } else if (strcmp(expr->binop.op, "%%") == 0 || strcmp(expr->binop.op, "%") == 0) {
+                printf("    udiv x2, x1, x0\n");       // x2 = x1 / x0
+                printf("    msub x0, x2, x0, x1\n");   // x0 = x1 - (x2 * x0)
+            } else if (strcmp(expr->binop.op, "==") == 0) {
+                printf("    cmp x1, x0\n");
+                printf("    cset x0, eq\n");
+            } else if (strcmp(expr->binop.op, "<") == 0) {
+                printf("    cmp x1, x0\n");
+                printf("    cset x0, lt\n");
+            } else if (strcmp(expr->binop.op, ">") == 0) {
+                printf("    cmp x1, x0\n");
+                printf("    cset x0, gt\n");
+            }
+            break;
+        }
         default:
             break;
     }
@@ -184,7 +198,6 @@ void emit_stmt(struct ASTNode* stmt) {
         }
         case RETURN:
             emit_expr(stmt->ret.value);
-            //printf("    mov x0, #0\n"); Overwrites incorrectly the previous expression
             printf("    bl _exit\n");
             break;
         default:
@@ -194,7 +207,7 @@ void emit_stmt(struct ASTNode* stmt) {
 
 void generate_code(struct ASTNode* root) {
     printf(".extern _exit\n");
-printf(".text\n");
+    printf(".text\n");
     printf(".global _start\n");
     printf("_start:\n");
     printf("    stp x29, x30, [sp, #-16]!\n");
@@ -203,14 +216,9 @@ printf(".text\n");
 
     emit_stmt(root->func.body);
 
-   /*
-    printf("    mov x0, #0\n");
-    printf("    mov x0, #0
-");
-printf("    bl _exit
-");
-    */
-
     printf(".section .data\n");
     printf("divzero_msg: .asciz \"Division by zero!\\n\"\n");
 }
+
+
+

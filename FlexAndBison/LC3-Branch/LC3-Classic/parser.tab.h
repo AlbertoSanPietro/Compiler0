@@ -68,7 +68,8 @@ extern int yydebug;
     GT = 269,                      /* GT  */
     NUMBER = 270,                  /* NUMBER  */
     IDENT = 271,                   /* IDENT  */
-    LOWER_THAN_ELSE = 272          /* LOWER_THAN_ELSE  */
+    UMINUS = 272,                  /* UMINUS  */
+    LOWER_THAN_ELSE = 273          /* LOWER_THAN_ELSE  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -83,7 +84,7 @@ union YYSTYPE
     char* sval;
     struct ASTNode* node;
 
-#line 87 "parser.tab.h"
+#line 88 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

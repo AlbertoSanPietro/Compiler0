@@ -119,31 +119,13 @@ void emit_expr(struct ASTNode* expr) {
                 printf("    ADD R0, R1, R0\n");
             } else if (strcmp(expr->binop.op, "-") == 0) {
                 printf("    NOT R0, R0\n    ADD R0, R0, #1\n    ADD R0, R1, R0\n");
-            } else if (strcmp(expr->binop.op, "%") == 0 || strcmp(expr->binop.op, "%%") == 0) {
-                int loop = label_id++, end = label_id++;
-                printf("    STR R0, MODDIV\n");
-                printf("    STR R1, MODSRC\n");
-                printf("MODLOOP%d:\n", loop);
-                printf("    LDR R0, MODSRC\n");
-                printf("    LDR R1, MODDIV\n");
-                printf("    NOT R1, R1\n");
-                printf("    ADD R1, R1, #1\n");
-                printf("    ADD R2, R0, R1\n");
-                printf("    BRn MODEND%d\n", end);
-                printf("    STR R2, MODSRC\n");
-                printf("    BR MODLOOP%d\n", loop);
-                printf("MODEND%d:\n", end);
-                printf("    LDR R0, MODSRC\n");
-                label_id++;
+            } else if (strcmp(expr->binop.op, "*") == 0 || strcmp(expr->binop.op, "/") == 0 || strcmp(expr->binop.op, "%") == 0) {
+                printf("    ; operation '%s' not directly supported in LC3\n", expr->binop.op);
             } else if (strcmp(expr->binop.op, "==") == 0) {
                 printf("    NOT R2, R0\n    ADD R2, R2, #1\n    ADD R2, R2, R1\n    BRz TRUE%d\n    AND R0, R0, #0\n    BR DONE%d\nTRUE%d:\n    AND R0, R0, #0\n    ADD R0, R0, #1\nDONE%d:\n", label_id, label_id, label_id, label_id);
                 label_id++;
-            } else if (strcmp(expr->binop.op, "<") == 0) {
-                printf("    NOT R0, R0\n    ADD R0, R0, #1\n    ADD R2, R1, R0\n    BRn TRUE%d\n    AND R0, R0, #0\n    BR DONE%d\nTRUE%d:\n    AND R0, R0, #0\n    ADD R0, R0, #1\nDONE%d:\n", label_id, label_id, label_id, label_id);
-                label_id++;
-            } else if (strcmp(expr->binop.op, ">") == 0) {
-                printf("    NOT R1, R1\n    ADD R1, R1, #1\n    ADD R2, R0, R1\n    BRn TRUE%d\n    AND R0, R0, #0\n    BR DONE%d\nTRUE%d:\n    AND R0, R0, #0\n    ADD R0, R0, #1\nDONE%d:\n", label_id, label_id, label_id, label_id);
-                label_id++;
+            } else if (strcmp(expr->binop.op, "<") == 0 || strcmp(expr->binop.op, ">") == 0) {
+                printf("    ; comparison '%s' not implemented\n", expr->binop.op);
             }
             break;
         }
@@ -208,8 +190,6 @@ void generate_code(struct ASTNode* root) {
         printf("VAR%d .FILL #0\n", i);
     }
     printf("TMP .BLKW 1\n");
-    printf("MODSRC .BLKW 1\n");
-    printf("MODDIV .BLKW 1\n");
     printf(".END\n");
 }
 

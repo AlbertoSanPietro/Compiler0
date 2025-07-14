@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP } NodeType;
+typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP, UNOP } NodeType;
 
 struct ASTNode {
     NodeType type;
@@ -18,6 +18,7 @@ struct ASTNode {
         int num;
         char* var;
         struct { char* op; struct ASTNode* left, *right; } binop;
+        struct { char* op; struct ASTNode* operand; } unop;
     };
 };
 
@@ -99,6 +100,12 @@ struct ASTNode* make_binop(char* op, struct ASTNode* left, struct ASTNode* right
     node->binop.right = right;
     return node;
 }
+struct ASTNode* make_unaryop(char* op, struct ASTNode* operand) {
+    struct ASTNode* node = new_node(UNOP);
+    node->unop.op = strdup(op);
+    node->unop.operand = operand;
+    return node;
+}
 
 void emit_expr(struct ASTNode* expr) {
     switch (expr->type) {
@@ -108,6 +115,13 @@ void emit_expr(struct ASTNode* expr) {
         case VAR: {
             int offset = get_var_offset(expr->var);
             printf("    LD R0, VAR%d\n", offset);
+            break;
+        }
+        case UNOP: {
+            emit_expr(expr->unop.operand);
+            if (strcmp(expr->unop.op, "-") == 0) {
+                printf("    NOT R0, R0\n    ADD R0, R0, #1\n");
+            }
             break;
         }
         case BINOP: {

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP } NodeType;
+typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP, UNARYOP } NodeType;
 
 struct ASTNode {
     NodeType type;
@@ -18,6 +18,7 @@ struct ASTNode {
         int num;
         char* var;
         struct { char* op; struct ASTNode* left, *right; } binop;
+        struct { char* op; struct ASTNode* operand; } unaryop;
     };
 };
 
@@ -101,6 +102,12 @@ struct ASTNode* make_binop(char* op, struct ASTNode* left, struct ASTNode* right
     node->binop.right = right;
     return node;
 }
+struct ASTNode* make_unaryop(char* op, struct ASTNode* operand) {
+    struct ASTNode* node = new_node(UNARYOP);
+    node->unaryop.op = strdup(op);
+    node->unaryop.operand = operand;
+    return node;
+}
 
 void emit_expr(struct ASTNode* expr) {
     switch (expr->type) {
@@ -110,6 +117,13 @@ void emit_expr(struct ASTNode* expr) {
         case VAR: {
             int offset = get_var_offset(expr->var);
             printf("    mov rax, [rbp%+d]\n", offset);
+            break;
+        }
+        case UNARYOP: {
+            emit_expr(expr->unaryop.operand);
+            if (strcmp(expr->unaryop.op, "-") == 0) {
+                printf("    neg rax\n");
+            }
             break;
         }
         case BINOP: {
@@ -239,29 +253,4 @@ void generate_code(struct ASTNode* root) {
     printf("divzero_msg: db \"Division by zero!\", 10\n");
     printf("divzero_len: equ $ - divzero_msg\n");
 }
-
-
-/*  
-void generate_code(struct ASTNode* root) {
-    printf("section .text\n");
-    printf("global _start\n");
-    printf("_start:\n");
-    printf("    push rbp\n");
-    printf("    mov rbp, rsp\n");
-    printf("    sub rsp, 512\n"); // basic stack frame
-
-    emit_stmt(root->func.body);
-
-    printf("    mov rdi, 0\n");
-    printf("    mov rax, 60\n    syscall\n");
-
-    printf(".divzero:\n");
-    printf("    mov rdi, divzero_msg\n");
-    printf("    call puts\n");
-    printf("    mov rdi, 1\n");
-    printf("    mov rax, 60\n    syscall\n");
-
-    printf("section .data\n");
-    printf("divzero_msg: db \"Division by zero!\", 10, 0\n");
-}*/
 

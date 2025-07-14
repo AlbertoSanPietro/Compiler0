@@ -1,0 +1,12 @@
+.ORIG x3000
+    AND R0, R0, #0
+    ADD R0, R0, #1
+    ST R0, VAR0
+    LD R0, VAR0
+    HALT
+    HALT
+VAR0 .FILL #0
+TMP .BLKW 1
+MODSRC .BLKW 1
+MODDIV .BLKW 1
+.END

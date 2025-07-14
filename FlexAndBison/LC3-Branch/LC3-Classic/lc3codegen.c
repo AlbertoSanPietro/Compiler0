@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP } NodeType;
+typedef enum { FUNC, STMT_LIST, VAR_DECL, ASSIGN, IF, WHILE, RETURN, NUMBER, VAR, BINOP, UNARYOP } NodeType;
 
 struct ASTNode {
     NodeType type;
@@ -18,6 +18,7 @@ struct ASTNode {
         int num;
         char* var;
         struct { char* op; struct ASTNode* left, *right; } binop;
+        struct { char* op; struct ASTNode* child; } unaryop;
     };
 };
 
@@ -99,6 +100,12 @@ struct ASTNode* make_binop(char* op, struct ASTNode* left, struct ASTNode* right
     node->binop.right = right;
     return node;
 }
+struct ASTNode* make_unaryop(char* op, struct ASTNode* child) {
+    struct ASTNode* node = new_node(UNARYOP);
+    node->unaryop.op = strdup(op);
+    node->unaryop.child = child;
+    return node;
+}
 
 void emit_expr(struct ASTNode* expr) {
     switch (expr->type) {
@@ -110,6 +117,12 @@ void emit_expr(struct ASTNode* expr) {
             printf("    LD R0, VAR%d\n", offset);
             break;
         }
+        case UNARYOP:
+            emit_expr(expr->unaryop.child);
+            if (strcmp(expr->unaryop.op, "-") == 0) {
+                printf("    NOT R0, R0\n    ADD R0, R0, #1\n");
+            }
+            break;
         case BINOP: {
             emit_expr(expr->binop.left);
             printf("    ST R0, TMP\n");
@@ -196,4 +209,3 @@ void generate_code(struct ASTNode* root) {
     printf("TMP .BLKW 1\n");
     printf(".END\n");
 }
-

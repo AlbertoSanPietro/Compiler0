@@ -32,11 +32,11 @@ static int var_count = 0;
 int get_var_offset(const char* name) {
     for (int i = 0; i < var_count; i++) {
         if (strcmp(var_table[i].name, name) == 0)
-            return i;
+            return var_table[i].offset;
     }
     var_table[var_count].name = strdup(name);
-    var_table[var_count].offset = var_count;
-    return var_count++;
+    var_table[var_count].offset = -8 * (var_count + 1);
+    return var_table[var_count++].offset;
 }
 
 #define new_node(t) ((struct ASTNode*)calloc(1, sizeof(struct ASTNode))); node->type = t
@@ -103,50 +103,42 @@ struct ASTNode* make_binop(char* op, struct ASTNode* left, struct ASTNode* right
 void emit_expr(struct ASTNode* expr) {
     switch (expr->type) {
         case NUMBER:
-            printf("    AND R0, R0, #0\n    ADD R0, R0, #%d\n", expr->num);
+            printf("    mov x0, #%d\n", expr->num);
             break;
         case VAR: {
             int offset = get_var_offset(expr->var);
-            printf("    LD R0, VAR%d\n", offset);
+            printf("    ldr x0, [x29, #%d]\n", offset);
             break;
         }
-        case BINOP: {
-            emit_expr(expr->binop.left);
-            printf("    STR R0, TMP\n");
-            emit_expr(expr->binop.right);
-            printf("    LDR R1, TMP\n");
-            if (strcmp(expr->binop.op, "+") == 0) {
-                printf("    ADD R0, R1, R0\n");
-            } else if (strcmp(expr->binop.op, "-") == 0) {
-                printf("    NOT R0, R0\n    ADD R0, R0, #1\n    ADD R0, R1, R0\n");
-            } else if (strcmp(expr->binop.op, "%") == 0 || strcmp(expr->binop.op, "%%") == 0) {
-                int loop = label_id++, end = label_id++;
-                printf("    STR R0, MODDIV\n");
-                printf("    STR R1, MODSRC\n");
-                printf("MODLOOP%d:\n", loop);
-                printf("    LDR R0, MODSRC\n");
-                printf("    LDR R1, MODDIV\n");
-                printf("    NOT R1, R1\n");
-                printf("    ADD R1, R1, #1\n");
-                printf("    ADD R2, R0, R1\n");
-                printf("    BRn MODEND%d\n", end);
-                printf("    STR R2, MODSRC\n");
-                printf("    BR MODLOOP%d\n", loop);
-                printf("MODEND%d:\n", end);
-                printf("    LDR R0, MODSRC\n");
-                label_id++;
-            } else if (strcmp(expr->binop.op, "==") == 0) {
-                printf("    NOT R2, R0\n    ADD R2, R2, #1\n    ADD R2, R2, R1\n    BRz TRUE%d\n    AND R0, R0, #0\n    BR DONE%d\nTRUE%d:\n    AND R0, R0, #0\n    ADD R0, R0, #1\nDONE%d:\n", label_id, label_id, label_id, label_id);
-                label_id++;
-            } else if (strcmp(expr->binop.op, "<") == 0) {
-                printf("    NOT R0, R0\n    ADD R0, R0, #1\n    ADD R2, R1, R0\n    BRn TRUE%d\n    AND R0, R0, #0\n    BR DONE%d\nTRUE%d:\n    AND R0, R0, #0\n    ADD R0, R0, #1\nDONE%d:\n", label_id, label_id, label_id, label_id);
-                label_id++;
-            } else if (strcmp(expr->binop.op, ">") == 0) {
-                printf("    NOT R1, R1\n    ADD R1, R1, #1\n    ADD R2, R0, R1\n    BRn TRUE%d\n    AND R0, R0, #0\n    BR DONE%d\nTRUE%d:\n    AND R0, R0, #0\n    ADD R0, R0, #1\nDONE%d:\n", label_id, label_id, label_id, label_id);
-                label_id++;
-            }
-            break;
-        }
+       case BINOP: {
+    emit_expr(expr->binop.left);   // x0 = left
+    printf("    str x0, [sp, #-16]!\n");
+    emit_expr(expr->binop.right);  // x0 = right
+    printf("    ldr x1, [sp], #16\n");  // x1 = left (restored)
+
+    if (strcmp(expr->binop.op, "+") == 0) {
+        printf("    add x0, x1, x0\n");
+    } else if (strcmp(expr->binop.op, "-") == 0) {
+        printf("    sub x0, x1, x0\n");
+    } else if (strcmp(expr->binop.op, "*") == 0) {
+        printf("    mul x0, x1, x0\n");
+    } else if (strcmp(expr->binop.op, "/") == 0) {
+        printf("    udiv x0, x1, x0\n");
+    } else if (strcmp(expr->binop.op, "%%") == 0 || strcmp(expr->binop.op, "%") == 0) {
+        printf("    udiv x2, x1, x0\n");       // x2 = x1 / x0
+        printf("    msub x0, x2, x0, x1\n");   // x0 = x1 - (x2 * x0)
+    } else if (strcmp(expr->binop.op, "==") == 0) {
+        printf("    cmp x1, x0\n");
+        printf("    cset x0, eq\n");
+    } else if (strcmp(expr->binop.op, "<") == 0) {
+        printf("    cmp x1, x0\n");
+        printf("    cset x0, lt\n");
+    } else if (strcmp(expr->binop.op, ">") == 0) {
+        printf("    cmp x1, x0\n");
+        printf("    cset x0, gt\n");
+    }
+    break;
+}
         default:
             break;
     }
@@ -162,37 +154,38 @@ void emit_stmt(struct ASTNode* stmt) {
         case VAR_DECL: {
             int offset = get_var_offset(stmt->var_decl.name);
             emit_expr(stmt->var_decl.value);
-            printf("    ST R0, VAR%d\n", offset);
+            printf("    str x0, [x29, #%d]\n", offset);
             break;
         }
         case ASSIGN: {
             int offset = get_var_offset(stmt->assign.name);
             emit_expr(stmt->assign.value);
-            printf("    ST R0, VAR%d\n", offset);
+            printf("    str x0, [x29, #%d]\n", offset);
             break;
         }
         case IF: {
             int l1 = label_id++, l2 = label_id++;
             emit_expr(stmt->if_stmt.cond);
-            printf("    BRz L%d\n", l1);
+            printf("    cbz x0, .L%d\n", l1);
             emit_stmt(stmt->if_stmt.then_branch);
-            printf("    BR L%d\nL%d:\n", l2, l1);
+            printf("    b .L%d\n.L%d:\n", l2, l1);
             emit_stmt(stmt->if_stmt.else_branch);
-            printf("L%d:\n", l2);
+            printf(".L%d:\n", l2);
             break;
         }
         case WHILE: {
             int l1 = label_id++, l2 = label_id++;
-            printf("L%d:\n", l1);
+            printf(".L%d:\n", l1);
             emit_expr(stmt->while_stmt.cond);
-            printf("    BRz L%d\n", l2);
+            printf("    cbz x0, .L%d\n", l2);
             emit_stmt(stmt->while_stmt.body);
-            printf("    BR L%d\nL%d:\n", l1, l2);
+            printf("    b .L%d\n.L%d:\n", l1, l2);
             break;
         }
         case RETURN:
             emit_expr(stmt->ret.value);
-            printf("    HALT\n");
+            printf("    mov x8, #93\n");
+            printf("    svc #0\n");
             break;
         default:
             break;
@@ -200,16 +193,21 @@ void emit_stmt(struct ASTNode* stmt) {
 }
 
 void generate_code(struct ASTNode* root) {
-    printf(".ORIG x3000\n");
+    printf(".text\n");
+    printf(".global _start\n");
+    printf("_start:\n");
+    printf("    stp x29, x30, [sp, #-16]!\n");
+    printf("    mov x29, sp\n");
+    printf("    sub sp, sp, #512\n");
+
     emit_stmt(root->func.body);
-    printf("    HALT\n");
 
-    for (int i = 0; i < var_count; i++) {
-        printf("VAR%d .FILL #0\n", i);
-    }
-    printf("TMP .BLKW 1\n");
-    printf("MODSRC .BLKW 1\n");
-    printf("MODDIV .BLKW 1\n");
-    printf(".END\n");
+   /*
+    printf("    mov x0, #0\n");
+    printf("    mov x8, #93\n");
+    printf("    svc #0\n");
+    */
+
+    printf(".section .data\n");
+    printf("divzero_msg: .asciz \"Division by zero!\\n\"\n");
 }
-
