@@ -1,3 +1,4 @@
+
 #include "codegen.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,47 +111,45 @@ struct ASTNode* make_unaryop(char* op, struct ASTNode* operand) {
 void emit_expr(struct ASTNode* expr) {
     switch (expr->type) {
         case NUMBER:
-            printf("    mov x0, #%d\n", expr->num);
+            printf("    li a0, %d\n", expr->num);
             break;
         case VAR: {
             int offset = get_var_offset(expr->var);
-            printf("    ldr x0, [x29, #%d]\n", offset);
+            printf("    ld a0, %d(s0)\n", offset);
             break;
         }
         case UNOP: {
             emit_expr(expr->unop.operand);
             if (strcmp(expr->unop.op, "-") == 0) {
-                printf("    neg x0, x0\n");
+                printf("    neg a0, a0\n");
             }
             break;
         }
         case BINOP: {
-            emit_expr(expr->binop.left);   // x0 = left
-            printf("    str x0, [sp, #-16]!\n");
-            emit_expr(expr->binop.right);  // x0 = right
-            printf("    ldr x1, [sp], #16\n");  // x1 = left (restored)
+            emit_expr(expr->binop.left);   // result in a0
+            printf("    addi sp, sp, -8\n");
+            printf("    sd a0, 0(sp)\n");   // save left
+            emit_expr(expr->binop.right);  // result in a0
+            printf("    ld a1, 0(sp)\n");
+            printf("    addi sp, sp, 8\n"); // restore stack
 
-            if (strcmp(expr->binop.op, "+") == 0) {
-                printf("    add x0, x1, x0\n");
-            } else if (strcmp(expr->binop.op, "-") == 0) {
-                printf("    sub x0, x1, x0\n");
-            } else if (strcmp(expr->binop.op, "*") == 0) {
-                printf("    mul x0, x1, x0\n");
-            } else if (strcmp(expr->binop.op, "/") == 0) {
-                printf("    udiv x0, x1, x0\n");
-            } else if (strcmp(expr->binop.op, "%%") == 0 || strcmp(expr->binop.op, "%") == 0) {
-                printf("    udiv x2, x1, x0\n");       // x2 = x1 / x0
-                printf("    msub x0, x2, x0, x1\n");   // x0 = x1 - (x2 * x0)
-            } else if (strcmp(expr->binop.op, "==") == 0) {
-                printf("    cmp x1, x0\n");
-                printf("    cset x0, eq\n");
-            } else if (strcmp(expr->binop.op, "<") == 0) {
-                printf("    cmp x1, x0\n");
-                printf("    cset x0, lt\n");
-            } else if (strcmp(expr->binop.op, ">") == 0) {
-                printf("    cmp x1, x0\n");
-                printf("    cset x0, gt\n");
-            }
+            if (strcmp(expr->binop.op, "+") == 0)
+                printf("    add a0, a1, a0\n");
+            else if (strcmp(expr->binop.op, "-") == 0)
+                printf("    sub a0, a1, a0\n");
+            else if (strcmp(expr->binop.op, "*") == 0)
+                printf("    mul a0, a1, a0\n");
+            else if (strcmp(expr->binop.op, "/") == 0)
+                printf("    divu a0, a1, a0\n");
+            else if (strcmp(expr->binop.op, "%%") == 0 || strcmp(expr->binop.op, "%") == 0)
+                printf("    remu a0, a1, a0\n");
+            else if (strcmp(expr->binop.op, "==") == 0) {
+                printf("    sub a0, a1, a0\n");
+                printf("    seqz a0, a0\n");
+            } else if (strcmp(expr->binop.op, "<") == 0)
+                printf("    sltu a0, a1, a0\n");
+            else if (strcmp(expr->binop.op, ">") == 0)
+                printf("    sltu a0, a0, a1\n");
             break;
         }
         default:
@@ -168,21 +167,22 @@ void emit_stmt(struct ASTNode* stmt) {
         case VAR_DECL: {
             int offset = get_var_offset(stmt->var_decl.name);
             emit_expr(stmt->var_decl.value);
-            printf("    str x0, [x29, #%d]\n", offset);
+            printf("    sd a0, %d(s0)\n", offset);
             break;
         }
         case ASSIGN: {
             int offset = get_var_offset(stmt->assign.name);
             emit_expr(stmt->assign.value);
-            printf("    str x0, [x29, #%d]\n", offset);
+            printf("    sd a0, %d(s0)\n", offset);
             break;
         }
         case IF: {
             int l1 = label_id++, l2 = label_id++;
             emit_expr(stmt->if_stmt.cond);
-            printf("    cbz x0, .L%d\n", l1);
+            printf("    beqz a0, .L%d\n", l1);
             emit_stmt(stmt->if_stmt.then_branch);
-            printf("    b .L%d\n.L%d:\n", l2, l1);
+            printf("    j .L%d\n", l2);
+            printf(".L%d:\n", l1);
             emit_stmt(stmt->if_stmt.else_branch);
             printf(".L%d:\n", l2);
             break;
@@ -191,15 +191,16 @@ void emit_stmt(struct ASTNode* stmt) {
             int l1 = label_id++, l2 = label_id++;
             printf(".L%d:\n", l1);
             emit_expr(stmt->while_stmt.cond);
-            printf("    cbz x0, .L%d\n", l2);
+            printf("    beqz a0, .L%d\n", l2);
             emit_stmt(stmt->while_stmt.body);
-            printf("    b .L%d\n.L%d:\n", l1, l2);
+            printf("    j .L%d\n", l1);
+            printf(".L%d:\n", l2);
             break;
         }
         case RETURN:
             emit_expr(stmt->ret.value);
-            printf("    mov x8, #93\n");
-            printf("    svc #0\n");
+            printf("    li a7, 93\n");
+            printf("    ecall\n");
             break;
         default:
             break;
@@ -210,16 +211,21 @@ void generate_code(struct ASTNode* root) {
     printf(".text\n");
     printf(".global _start\n");
     printf("_start:\n");
-    printf("    stp x29, x30, [sp, #-16]!\n");
-    printf("    mov x29, sp\n");
-    printf("    sub sp, sp, #512\n");
+
+    // Prologue
+    printf("    addi sp, sp, -16\n");
+    printf("    sd ra, 8(sp)\n");
+    printf("    sd s0, 0(sp)\n");
+    printf("    mv s0, sp\n");
+    printf("    addi sp, sp, -512\n");
 
     emit_stmt(root->func.body);
 
+    // Optional default exit if no return hit:
     /*
-    printf("    mov x0, #0\n");
-    printf("    mov x8, #93\n");
-    printf("    svc #0\n");
+    printf("    li a0, 0\n");
+    printf("    li a7, 93\n");
+    printf("    ecall\n");
     */
 
     printf(".section .data\n");
