@@ -405,7 +405,16 @@ _qui si va in specifiche inutili per la comprensione del progetto_
 La gestione dell'output è semplice e completamenze opzionale. Di default Flex copia l'input non matchato su _yyout_
 
 ## Stati di partenza e File di input nestati
+Mettiamo a frutto la nostra conoscenza dell'I/O di Flex con un progrmma che gestisce file include nestati e li stampa insieme al numero di linea del file.
+Teniamo una stack di file di input e numeri di linea pushando ad ogni #include e poppando ad EOF. 
+Usiamo anche gli _start states_ (stati di partenza) che ci fanno controllare quali pattern possono essere matchati quando. La linea _%x_ in cima la file denisice _IFILE_ come uno stato di partenza. 
+Si possono definire quanti stati di partena si vogliono. 
+La _%x_ segna IFILE come start state esclusivo ( _exclusive_ ). 
+La macro _BEGIN_ passa ad uno stato di partenza differente.
 
+```
+
+```
 
 
 
