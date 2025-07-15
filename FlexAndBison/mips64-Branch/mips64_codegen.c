@@ -28,7 +28,9 @@ static struct {
     char* name;
     int offset;
 } var_table[64];
+
 static int var_count = 0;
+static int temp_offset = -512;
 
 int get_var_offset(const char* name) {
     for (int i = 0; i < var_count; i++) {
@@ -38,6 +40,11 @@ int get_var_offset(const char* name) {
     var_table[var_count].name = strdup(name);
     var_table[var_count].offset = -8 * (var_count + 1);
     return var_table[var_count++].offset;
+}
+
+int push_temp() {
+    temp_offset -= 8;
+    return temp_offset;
 }
 
 #define new_node(t) ((struct ASTNode*)calloc(1, sizeof(struct ASTNode))); node->type = t
@@ -110,46 +117,47 @@ struct ASTNode* make_unaryop(char* op, struct ASTNode* operand) {
 void emit_expr(struct ASTNode* expr) {
     switch (expr->type) {
         case NUMBER:
-            printf("    mov x0, #%d\n", expr->num);
+            printf("    li $a0, %d\n", expr->num);
             break;
         case VAR: {
             int offset = get_var_offset(expr->var);
-            printf("    ldr x0, [x29, #%d]\n", offset);
+            printf("    ld $a0, %d($fp)\n", offset);
             break;
         }
         case UNOP: {
             emit_expr(expr->unop.operand);
             if (strcmp(expr->unop.op, "-") == 0) {
-                printf("    neg x0, x0\n");
+                printf("    dneg $a0, $a0\n");
             }
             break;
         }
         case BINOP: {
-            emit_expr(expr->binop.left);   // x0 = left
-            printf("    str x0, [sp, #-16]!\n");
-            emit_expr(expr->binop.right);  // x0 = right
-            printf("    ldr x1, [sp], #16\n");  // x1 = left (restored)
+            emit_expr(expr->binop.left);
+            int temp = push_temp();
+            printf("    sd $a0, %d($fp)\n", temp); // save left operand
+            emit_expr(expr->binop.right);
+            printf("    ld $a1, %d($fp)\n", temp); // load left into $a1, right in $a0
 
             if (strcmp(expr->binop.op, "+") == 0) {
-                printf("    add x0, x1, x0\n");
+                printf("    daddu $a0, $a1, $a0\n");
             } else if (strcmp(expr->binop.op, "-") == 0) {
-                printf("    sub x0, x1, x0\n");
+                printf("    dsubu $a0, $a1, $a0\n");
             } else if (strcmp(expr->binop.op, "*") == 0) {
-                printf("    mul x0, x1, x0\n");
+                printf("    dmul $a0, $a1, $a0\n");
             } else if (strcmp(expr->binop.op, "/") == 0) {
-                printf("    udiv x0, x1, x0\n");
-            } else if (strcmp(expr->binop.op, "%%") == 0 || strcmp(expr->binop.op, "%") == 0) {
-                printf("    udiv x2, x1, x0\n");       // x2 = x1 / x0
-                printf("    msub x0, x2, x0, x1\n");   // x0 = x1 - (x2 * x0)
-            } else if (strcmp(expr->binop.op, "==") == 0) {
-                printf("    cmp x1, x0\n");
-                printf("    cset x0, eq\n");
+                printf("    ddiv $a1, $a0\n");
+                printf("    mflo $a0\n");
+            } else if (strcmp(expr->binop.op, "%") == 0 || strcmp(expr->binop.op, "%%") == 0) {
+                printf("    ddiv $a1, $a0\n");
+                printf("    mfhi $a0\n");
             } else if (strcmp(expr->binop.op, "<") == 0) {
-                printf("    cmp x1, x0\n");
-                printf("    cset x0, lt\n");
+                printf("    slt $a0, $a1, $a0\n");
             } else if (strcmp(expr->binop.op, ">") == 0) {
-                printf("    cmp x1, x0\n");
-                printf("    cset x0, gt\n");
+                printf("    slt $a0, $a0, $a1\n");
+            } else if (strcmp(expr->binop.op, "==") == 0) {
+                printf("    seq $a0, $a1, $a0\n");
+            } else if (strcmp(expr->binop.op, "!=") == 0) {
+                printf("    sne $a0, $a1, $a0\n");
             }
             break;
         }
@@ -160,6 +168,7 @@ void emit_expr(struct ASTNode* expr) {
 
 void emit_stmt(struct ASTNode* stmt) {
     if (!stmt) return;
+
     switch (stmt->type) {
         case STMT_LIST:
             emit_stmt(stmt->stmt_list.list);
@@ -168,21 +177,22 @@ void emit_stmt(struct ASTNode* stmt) {
         case VAR_DECL: {
             int offset = get_var_offset(stmt->var_decl.name);
             emit_expr(stmt->var_decl.value);
-            printf("    str x0, [x29, #%d]\n", offset);
+            printf("    sd $a0, %d($fp)\n", offset);
             break;
         }
         case ASSIGN: {
             int offset = get_var_offset(stmt->assign.name);
             emit_expr(stmt->assign.value);
-            printf("    str x0, [x29, #%d]\n", offset);
+            printf("    sd $a0, %d($fp)\n", offset);
             break;
         }
         case IF: {
             int l1 = label_id++, l2 = label_id++;
             emit_expr(stmt->if_stmt.cond);
-            printf("    cbz x0, .L%d\n", l1);
+            printf("    beqz $a0, .L%d\n", l1);
             emit_stmt(stmt->if_stmt.then_branch);
-            printf("    b .L%d\n.L%d:\n", l2, l1);
+            printf("    b .L%d\n", l2);
+            printf(".L%d:\n", l1);
             emit_stmt(stmt->if_stmt.else_branch);
             printf(".L%d:\n", l2);
             break;
@@ -191,15 +201,16 @@ void emit_stmt(struct ASTNode* stmt) {
             int l1 = label_id++, l2 = label_id++;
             printf(".L%d:\n", l1);
             emit_expr(stmt->while_stmt.cond);
-            printf("    cbz x0, .L%d\n", l2);
+            printf("    beqz $a0, .L%d\n", l2);
             emit_stmt(stmt->while_stmt.body);
-            printf("    b .L%d\n.L%d:\n", l1, l2);
+            printf("    b .L%d\n", l1);
+            printf(".L%d:\n", l2);
             break;
         }
         case RETURN:
             emit_expr(stmt->ret.value);
-            printf("    mov x8, #93\n");
-            printf("    svc #0\n");
+            printf("    li $v0, 5058\n");
+            printf("    syscall\n");
             break;
         default:
             break;
@@ -208,21 +219,19 @@ void emit_stmt(struct ASTNode* stmt) {
 
 void generate_code(struct ASTNode* root) {
     printf(".text\n");
-    printf(".global _start\n");
-    printf("_start:\n");
-    printf("    stp x29, x30, [sp, #-16]!\n");
-    printf("    mov x29, sp\n");
-    printf("    sub sp, sp, #512\n");
+    printf(".globl __start\n");
+    printf("__start:\n");
+    printf("    daddiu $sp, $sp, -1024\n");
+    printf("    move $fp, $sp\n");
 
     emit_stmt(root->func.body);
 
-    /*
-    printf("    mov x0, #0\n");
-    printf("    mov x8, #93\n");
-    printf("    svc #0\n");
-    */
+    // Print return value in $a0
+    printf("    move $a1, $a0\n");
+    printf("    li $v0, 1\n");
+    printf("    syscall\n");
 
-    printf(".section .data\n");
-    printf("divzero_msg: .asciz \"Division by zero!\\n\"\n");
+    printf("    li $v0, 93\n");
+    printf("    syscall\n");
 }
 
