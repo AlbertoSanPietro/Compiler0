@@ -208,7 +208,7 @@ void emit_expr(struct ASTNode* expr) {
         printf("    mov rax, rbx\n");   // rax = left
         printf("    cqo\n");
         printf("    idiv rcx\n");
-    } else if (strcmp(expr->binop.op, "%%") == 0) {
+    } else if ((strcmp(expr->binop.op, "%%") == 0) || ((strcmp(expr->binop.op, "%")==0))) {
         printf("    cmp rax, 0\n");
         printf("    je .divzero\n");
         printf("    mov rcx, rax\n");   // rcx = right
