@@ -13,7 +13,7 @@ struct ASTNode* make_return(struct ASTNode* value);
 struct ASTNode* make_number(int value);
 struct ASTNode* make_variable(char* name);
 struct ASTNode* make_binop(char* op, struct ASTNode* left, struct ASTNode* right);
-struct ASTNode* make_unaryop(char* op, struct ASTNode* operand); // ✅ Add this line
+struct ASTNode* make_unaryop(char* op, struct ASTNode* operand);
 void generate_code(struct ASTNode* root);
 
 #endif
