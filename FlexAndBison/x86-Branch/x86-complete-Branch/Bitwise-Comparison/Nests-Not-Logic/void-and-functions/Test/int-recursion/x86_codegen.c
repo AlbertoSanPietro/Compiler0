@@ -1,4 +1,3 @@
-// codegen.c - Rewritten version
 #include "codegen.h"
 #include <stdio.h>
 #include <stdlib.h>
