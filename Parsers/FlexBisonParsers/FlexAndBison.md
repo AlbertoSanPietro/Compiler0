@@ -546,8 +546,9 @@ int popfile(void)
     return 1;
 }
 ```
+
 La prima parte del programma definisce lo stato iniziale e dichiara la struttura _bufstack_ che mantiene una entry nella lista degli input salvati.
-Il primo pattern che matcha un _#include_ 
+Il primo pattern che matcha un _#include_  
 
 
 
