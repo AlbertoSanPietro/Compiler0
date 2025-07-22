@@ -545,11 +545,116 @@ int popfile(void)
 
     return 1;
 }
+
 ```
 
 La prima parte del programma definisce lo stato iniziale e dichiara la struttura _bufstack_ che mantiene una entry nella lista degli input salvati.
-Il primo pattern che matcha un _#include_  
+Il primo pattern che matcha un _#include_ fino alle doppie virgolette che precedono il filename.  
 
+Il pattern permette di avere del whitespace opzionale e cambia lo stato di IFILE per leggere il prossimo filename di input. Nello stato IFILE il secondo pattern matcha un filename, caratteri fino alle virgolette chiuse, spazio o EOL. Tuttavia dobbiamo gestire quello che rimano della linea con _#include_. Usiamo _input()_: un loop legge fino a EOL o EOF e continua dalla linea successiva una volta che si è usciti dal file incluso.
+Uno start state deve gestire qualsiasi input possibile, quindi per gestire gli erorri usiamo la macro _yyterminate()_ per ritornare dallo scanner. 
+Il pattern _<<EOF>>__  matcha alla fine do ogni file fi input. Chiamiamo _popfile()_ per tironare al file precedente. Gli altri pattern scrivono le linee con il loro numero usando _yylineno_
+
+La routine _newfile(fn)_ si preparala e leggere da un file _fn_ salvando i file di input precedenti in una linked list di strutture _bufstack_. 
+
+La routine _popfile()_ fa il contrario di _newfile_. 
+
+
+## Tabelle dei Simboli e Concordance Generator
+Quasi tutti i programmi di flex e bison usano una tabella dei simboli per mantenere traccia dei nomi usati nell'input. Iniziamo con un programma semplice che fa una concordance: una lista dei nmeri di linea dove ogni parola dell'input appare.
+
+### Gestire le tabelle dei simboli
+
+```
+/* text concordance */
+%option noyywrap nodefault yylineno case-insensitive
+/* the symbol table */ 
+%{
+#include <stdio.h>
+
+struct symbol {
+	char *name;
+	struct ref *reflist;
+};
+
+struct ref {
+	struct ref *next;
+	char *filename;
+	int flags;
+	int lineno;
+};
+
+//Simple symtab of fixed size
+#define NHASH 9997
+struct symbol symtab[NHASH];
+
+struct symbol *lookup(char *);
+void addref(int char *, char *, int);
+
+char *curfilename;
+
+
+%}
+
+/*Rules and skip common words*/
+
+%%
+
+
+
+a |
+an |
+and |
+are |
+as |
+at |
+be | 
+but |
+for |
+in |
+is |
+it |
+of |
+on |
+or |
+that |
+the |
+this |
+to  /*ignore*/
+
+[a-z]+(\'(s|t))? { addref(yylineno, curfilename, yytext, 0); }
+.|\n /*Ignore everything else*/
+
+%%
+
+int main(int argc, char **argv) {
+	int i;
+
+	if (argc<2) {
+		//read stdin
+		curfilename = "(stdin)";
+		yylineno = 1;
+		yylex();
+	} else {
+			for (i = 1; i < argc; i++) {
+				FILE *f= fopen(argv[i], "r");
+
+				if (!f) {
+					perror(argv[1]);
+					return (1);
+				}
+				curfilename = argv[i]; //for addref
+
+				yyrestart(f);
+				yylineno= 1;
+				yylex();
+				fclose(f);
+			}
+
+			printrefs();
+	}
+}
+```
 
 
 
